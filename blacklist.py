@@ -1,10 +1,11 @@
-# Verlihub Blacklist 1.0
+# Verlihub Blacklist 1.1
 # Written by RoLex, 2010-2014
 # Special thanks to Frog
 # Changelog:
 # 0.0 - Not available
 # 1.0 - Added configuration find_maxres to limit number of results on find action
 # 1.0 - Added country codes of addresses in waiting feed list
+# 1.1 - Added configuration time_down to specify timeout of download progress in seconds
 
 import vh, re, urllib2, gzip, StringIO, time, os, socket, struct
 
@@ -14,6 +15,7 @@ bl_conf = {
 	"class_feed": [5, "int", 0, 11],
 	"class_conf": [10, "int", 3, 11],
 	"time_feed": [60, "int", 0, 1440],
+	"time_down": [5, "int", 1, 300],
 	"notify_update": [1, "int", 0, 1],
 	"find_maxres": [1000, "int", 1, 100000]
 }
@@ -23,7 +25,7 @@ bl_stats = {
 	"block": 0l,
 	"except": 0l,
 	"tick": time.time (),
-	"version": 1.0
+	"version": 1.1
 }
 
 bl_update = [
@@ -88,7 +90,7 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 
 	if "://" in list:
 		try:
-			file = urllib2.urlopen (list, None, 5)
+			file = urllib2.urlopen (list, None, bl_conf ["time_down"][0])
 		except urllib2.HTTPError:
 			return "Failed due HTTP error"
 		except urllib2.URLError:
