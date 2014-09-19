@@ -1,11 +1,12 @@
-# Verlihub Blacklist 1.1
+# Verlihub Blacklist 1.1.1
 # Written by RoLex, 2010-2014
 # Special thanks to Frog
 # Changelog:
-# 0.0 - Not available
-# 1.0 - Added configuration find_maxres to limit number of results on find action
-# 1.0 - Added country codes of addresses in waiting feed list
-# 1.1 - Added configuration time_down to specify timeout of download progress in seconds
+# 0.0.0 - Not available
+# 1.0.0 - Added configuration find_maxres to limit number of results on find action
+# 1.0.0 - Added country codes of addresses in waiting feed list
+# 1.1.0 - Added configuration time_down to specify timeout of download progress in seconds
+# 1.1.1 - Added listoff command to disable or enable lists
 
 import vh, re, urllib2, gzip, StringIO, time, os, socket, struct
 
@@ -25,14 +26,14 @@ bl_stats = {
 	"block": 0l,
 	"except": 0l,
 	"tick": time.time (),
-	"version": 1.1
+	"version": "1.1.1"
 }
 
 bl_update = [
-	# ["http://list.iblocklist.com/?list=ijfqtofzixtwayqovmxn&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Primary threat", 0, 0],
-	# ["http://list.iblocklist.com/?list=bt_proxy&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Proxy", 0, 0],
-	# ["http://torstatus.blutmagie.de/ip_list_exit.php/tor_ip_list_exit.csv", "single", "Tor exit", 60, 0],
-	# ["http://torstatus.blutmagie.de/ip_list_all.php/tor_ip_list_all.csv", "single", "Tor server", 60, 0]
+	# ["http://list.iblocklist.com/?list=ijfqtofzixtwayqovmxn&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Primary threat", 0, 0, 0],
+	# ["http://list.iblocklist.com/?list=bt_proxy&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Proxy", 0, 0, 0],
+	# ["http://torstatus.blutmagie.de/ip_list_exit.php/tor_ip_list_exit.csv", "single", "Tor exit", 60, 0, 0],
+	# ["http://torstatus.blutmagie.de/ip_list_all.php/tor_ip_list_all.csv", "single", "Tor server", 60, 0, 0]
 ]
 
 bl_list = [[] for i in xrange (256)]
@@ -44,19 +45,22 @@ def bl_startup ():
 
 	vh.SQL (
 		"create table if not exists `py_bl_conf` ("\
-			"`name` varchar(255) collate utf8_general_ci not null primary key,"\
-			"`value` varchar(255) collate utf8_general_ci not null"\
-		") engine = myisam default character set utf8 collate utf8_general_ci"
+			"`name` varchar(255) collate utf8_unicode_ci not null primary key,"\
+			"`value` varchar(255) collate utf8_unicode_ci not null"\
+		") engine = myisam default character set utf8 collate utf8_unicode_ci"
 	)
 
 	vh.SQL (
 		"create table if not exists `py_bl_list` ("\
-			"`list` varchar(255) collate utf8_general_ci not null primary key,"\
-			"`type` varchar(25) collate utf8_general_ci not null,"\
-			"`title` varchar(255) collate utf8_general_ci not null,"\
-			"`update` smallint(4) collate utf8_general_ci not null default 0"\
-		") engine = myisam default character set utf8 collate utf8_general_ci"
+			"`list` varchar(255) collate utf8_unicode_ci not null primary key,"\
+			"`type` varchar(25) collate utf8_unicode_ci not null,"\
+			"`title` varchar(255) collate utf8_unicode_ci not null,"\
+			"`update` smallint(4) unsigned collate utf8_unicode_ci not null default 0,"\
+			"`off` tinyint(1) unsigned collate utf8_unicode_ci not null default 0"\
+		") engine = myisam default character set utf8 collate utf8_unicode_ci"
 	)
+
+	vh.SQL ("alter ignore table `py_bl_list` add column `off` tinyint(1) unsigned collate utf8_unicode_ci not null default 0 after `update`")
 
 	for name, value in bl_conf.iteritems ():
 		vh.SQL ("insert ignore into `py_bl_conf` (`name`, `value`) values ('%s', '%s')" % (bl_repsql (name), bl_repsql (str (value [0]))))
@@ -71,15 +75,16 @@ def bl_startup ():
 
 	if sql and rows:
 		for list in rows:
-			bl_update.append ([list [0], list [1], list [2], int (list [3]), 0])
+			bl_update.append ([list [0], list [1], list [2], int (list [3]), int (list [4]), 0])
 
 	out = "Blacklist %s startup:\r\n\r\n" % bl_stats ["version"]
 
 	for id, item in enumerate (bl_update):
-		out += " [*] %s: %s\r\n" % (item [2], bl_import (item [0], item [1], item [2], 0))
+		if not item [4]:
+			out += " [*] %s: %s\r\n" % (item [2], bl_import (item [0], item [1], item [2], 0))
 
-		if item [3]:
-			bl_update [id][4] = time.time ()
+			if item [3]:
+				bl_update [id][5] = time.time ()
 
 	out += " [*] %s: %s\r\n" % ("Exception", bl_import (bl_conf ["file_except"][0], "p2p", "Exception", 0, True))
 	bl_notify (out)
@@ -314,14 +319,19 @@ def OnOperatorCommand (user, data):
 
 		if data [4:9] == "stats":
 			count = 0
+			lists = 0
 
 			for i in range (len (bl_list)):
 				for item in bl_list [i]:
 					count += 1
 
+			for item in bl_update:
+				if not item [4]:
+					lists += 1
+
 			out = "Blacklist statistics:\r\n"
 			out += "\r\n [*] Version: %s" % bl_stats ["version"]
-			out += "\r\n [*] Loaded lists: %s" % len (bl_update)
+			out += "\r\n [*] Loaded lists: %s of %s" % (lists, len (bl_update))
 			out += "\r\n [*] Blacklisted items: %s" % count
 			out += "\r\n [*] Excepted items: %s" % len (bl_except)
 			out += "\r\n [*] Blocked connections: %s" % bl_stats ["block"]
@@ -388,7 +398,13 @@ def OnOperatorCommand (user, data):
 					out += "\r\n [*] List: %s" % item [0]
 					out += "\r\n [*] Type: %s" % item [1]
 					out += "\r\n [*] Title: %s" % item [2]
-					out += "\r\n [*] Update: %s\r\n" % ("On load" if not item [3] else "%s minute | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [4] + (item [3] * 60)))) if item [3] == 1 else "%s minutes | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [4] + (item [3] * 60)))))
+
+					if not item [4]:
+						out += "\r\n [*] Update: %s" % ("On load" if not item [3] else "%s minute | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [5] + (item [3] * 60)))) if item [3] == 1 else "%s minutes | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [5] + (item [3] * 60)))))
+					else:
+						out += "\r\n [*] Update: %s" % ("On load" if not item [3] else "%s minute" % item [3] if item [3] == 1 else "%s minutes" % item [3])
+
+					out += "\r\n [*] Disabled: %s\r\n" % ("No" if not item [4] else "Yes")
 
 			bl_reply (user, out)
 			return 0
@@ -429,11 +445,17 @@ def OnOperatorCommand (user, data):
 					out += "\r\n [*] List: %s" % item [0]
 					out += "\r\n [*] Type: %s" % item [1]
 					out += "\r\n [*] Title: %s" % item [2]
-					out += "\r\n [*] Update: %s\r\n" % ("On load" if not item [3] else "%s minute | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [4] + (item [3] * 60)))) if item [3] == 1 else "%s minutes | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [4] + (item [3] * 60)))))
+
+					if not item [4]:
+						out += "\r\n [*] Update: %s" % ("On load" if not item [3] else "%s minute | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [5] + (item [3] * 60)))) if item [3] == 1 else "%s minutes | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [5] + (item [3] * 60)))))
+					else:
+						out += "\r\n [*] Update: %s" % ("On load" if not item [3] else "%s minute" % item [3] if item [3] == 1 else "%s minutes" % item [3])
+
+					out += "\r\n [*] Disabled: %s\r\n" % ("No" if not item [4] else "Yes")
 					bl_reply (user, out)
 					return 0
 
-			bl_update.append ([pars [0][0], pars [0][1], pars [0][2], update, time.time () if update else 0])
+			bl_update.append ([pars [0][0], pars [0][1], pars [0][2], update, 0, time.time () if update else 0])
 			vh.SQL ("insert into `py_bl_list` (`list`, `type`, `title`, `update`) values ('%s', '%s', '%s', '%s')" % (bl_repsql (pars [0][0]), bl_repsql (pars [0][1]), bl_repsql (pars [0][2]), bl_repsql (str (update))))
 			out = "Item added to list:\r\n"
 			out += "\r\n [*] ID: %s" % (len (bl_update) - 1)
@@ -441,6 +463,7 @@ def OnOperatorCommand (user, data):
 			out += "\r\n [*] Type: %s" % pars [0][1]
 			out += "\r\n [*] Title: %s" % pars [0][2]
 			out += "\r\n [*] Update: %s" % ("On load" if not update else "%s minute | %s" % (update, time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (update * 60)))) if update == 1 else "%s minutes | %s" % (update, time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (update * 60)))))
+			out += "\r\n [*] Disabled: No"
 			out += "\r\n [*] Status: %s\r\n" % bl_import (pars [0][0], pars [0][1], pars [0][2], 0)
 			bl_reply (user, out)
 			return 0
@@ -455,22 +478,79 @@ def OnOperatorCommand (user, data):
 			if id >= 0 and bl_update and len (bl_update) - 1 >= id:
 				item = bl_update.pop (id)
 				vh.SQL ("delete from `py_bl_list` where `list` = '%s'" % bl_repsql (item [0]))
-				del bl_list [:]
-				bl_list = [[] for i in xrange (256)]
 
-				for newid, newitem in enumerate (bl_update):
-					bl_import (newitem [0], newitem [1], newitem [2], 0)
+				if not item [4]:
+					del bl_list [:]
+					bl_list = [[] for i in xrange (256)]
 
-					if newitem [3]:
-						bl_update [newid][4] = time.time ()
+					for newid, newitem in enumerate (bl_update):
+						if not newitem [4]:
+							bl_import (newitem [0], newitem [1], newitem [2], 0)
+
+							if newitem [3]:
+								bl_update [newid][5] = time.time ()
 
 				out = "Item deleted from list:\r\n"
 				out += "\r\n [*] ID: %s" % id
 				out += "\r\n [*] List: %s" % item [0]
 				out += "\r\n [*] Type: %s" % item [1]
 				out += "\r\n [*] Title: %s" % item [2]
-				out += "\r\n [*] Update: %s\r\n" % ("On load" if not item [3] else "%s minute | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [4] + (item [3] * 60)))) if item [3] == 1 else "%s minutes | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (item [4] + (item [3] * 60)))))
+				out += "\r\n [*] Update: %s" % ("On load" if not item [3] else "%s minute" % item [3] if item [3] == 1 else "%s minutes" % item [3])
+				out += "\r\n [*] Disabled: %s\r\n" % ("No" if not item [4] else "Yes")
 				bl_reply (user, out)
+			else:
+				bl_reply (user, "List out of item with ID: %s" % id)
+
+			return 0
+
+		if data [4:11] == "listoff":
+			try:
+				id = int (data [12:])
+			except:
+				bl_reply (user, "Missing command parameters: listoff <id>")
+				return 0
+
+			if id >= 0 and bl_update and len (bl_update) - 1 >= id:
+				item = bl_update [id]
+
+				if not item [4]:
+					bl_update [id][4] = 1
+					bl_update [id][5] = 0
+					vh.SQL ("update `py_bl_list` set `off` = 1 where `list` = '%s'" % bl_repsql (item [0]))
+					del bl_list [:]
+					bl_list = [[] for i in xrange (256)]
+
+					for newid, newitem in enumerate (bl_update):
+						if not newitem [4]:
+							bl_import (newitem [0], newitem [1], newitem [2], 0)
+
+							if newitem [3]:
+								bl_update [newid][5] = time.time ()
+
+					out = "Item now disabled:\r\n"
+					out += "\r\n [*] ID: %s" % id
+					out += "\r\n [*] List: %s" % item [0]
+					out += "\r\n [*] Type: %s" % item [1]
+					out += "\r\n [*] Title: %s" % item [2]
+					out += "\r\n [*] Update: %s" % ("On load" if not item [3] else "%s minute" % item [3] if item [3] == 1 else "%s minutes" % item [3])
+					out += "\r\n [*] Disabled: Yes\r\n"
+					bl_reply (user, out)
+				else:
+					bl_update [id][4] = 0
+					vh.SQL ("update `py_bl_list` set `off` = 0 where `list` = '%s'" % bl_repsql (item [0]))
+
+					if item [3]:
+						bl_update [id][5] = time.time ()
+
+					out = "Item now enabled:\r\n"
+					out += "\r\n [*] ID: %s" % id
+					out += "\r\n [*] List: %s" % item [0]
+					out += "\r\n [*] Type: %s" % item [1]
+					out += "\r\n [*] Title: %s" % item [2]
+					out += "\r\n [*] Update: %s" % ("On load" if not item [3] else "%s minute | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (item [3] * 60)))) if item [3] == 1 else "%s minutes | %s" % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (item [3] * 60)))))
+					out += "\r\n [*] Disabled: No"
+					out += "\r\n [*] Status: %s\r\n" % bl_import (item [0], item [1], item [2], 0)
+					bl_reply (user, out)
 			else:
 				bl_reply (user, "List out of item with ID: %s" % id)
 
@@ -591,21 +671,17 @@ def OnOperatorCommand (user, data):
 			return 0
 
 		out = "Blacklist usage:\r\n\r\n"
-		# space
 		out += " !bl stats\t\t\t\t\t- Script statistics\r\n"
-		out += " !bl find <item>\t\t\t\t- Search in all lists\r\n\r\n"
-		# space
-		out += " !bl listall\t\t\t\t\t- Show loaded lists\r\n"
+		out += " !bl find <item>\t\t\t\t- Search in loaded lists\r\n\r\n"
+		out += " !bl listall\t\t\t\t\t- Show all lists\r\n"
 		out += " !bl listadd <list> <type> <\"title\"> [update]\t- Load new list\r\n"
-		out += " !bl listdel <id>\t\t\t\t- Delete loaded list\r\n\r\n"
-		# space
+		out += " !bl listoff <id>\t\t\t\t- Disable or enable list\r\n"
+		out += " !bl listdel <id>\t\t\t\t- Delete existing list\r\n\r\n"
 		out += " !bl exall\t\t\t\t\t- Show exception list\r\n"
 		out += " !bl exadd <addr>-[range] [title]\t\t- New exception item\r\n"
 		out += " !bl exdel <id>\t\t\t\t- Delete an exception\r\n\r\n"
-		# space
 		out += " !bl conf\t\t\t\t\t- Show current configuration\r\n"
 		out += " !bl set <item> [value]\t\t\t- Set configuration item\r\n\r\n"
-		# space
 		out += " !bl feed\t\t\t\t\t- Show waiting feed list\r\n"
 		bl_reply (user, out)
 		return 0
@@ -623,9 +699,9 @@ def OnTimer ():
 				bl_feed.pop (id)
 
 		for id, item in enumerate (bl_update):
-			if item [3] and time.time () - item [4] >= item [3] * 60:
-				bl_update [id][4] = time.time ()
-				out = bl_import (item [0], item [1], item [2], item [3])
+			if not item [4] and item [3] and time.time () - item [5] >= item [3] * 60:
+				bl_update [id][5] = time.time ()
+				out = bl_import (item [0], item [1], item [2], 1)
 
 				if bl_conf ["notify_update"][0]:
 					bl_notify ("%s: %s" % (item [2], out))
