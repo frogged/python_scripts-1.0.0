@@ -1,4 +1,4 @@
-# Verlihub Blacklist 1.1.1
+# Verlihub Blacklist 1.1.2
 # Written by RoLex, 2010-2014
 # Special thanks to Frog
 # Changelog:
@@ -7,6 +7,7 @@
 # 1.0.0 - Added country codes of addresses in waiting feed list
 # 1.1.0 - Added configuration time_down to specify timeout of download progress in seconds
 # 1.1.1 - Added listoff command to disable or enable lists
+# 1.1.2 - Added another read failure check
 
 import vh, re, urllib2, gzip, StringIO, time, os, socket, struct
 
@@ -26,7 +27,7 @@ bl_stats = {
 	"block": 0l,
 	"except": 0l,
 	"tick": time.time (),
-	"version": "1.1.1"
+	"version": "1.1.2" # update on release
 }
 
 bl_update = [
@@ -97,11 +98,11 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 		try:
 			file = urllib2.urlopen (list, None, bl_conf ["time_down"][0])
 		except urllib2.HTTPError:
-			return "Failed due HTTP error"
+			return "Failed with HTTP error"
 		except urllib2.URLError:
-			return "Failed due URL error"
+			return "Failed with URL error"
 		except:
-			return "Failed due unknown error"
+			return "Failed with unknown error"
 	else:
 		try:
 			file = open (list, "r")
@@ -126,14 +127,23 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 				return "Failed to compile pattern"
 
 			if "gzip" in type:
-				data = StringIO.StringIO (file.read ())
-				file.close ()
+				data = None
 
 				try:
-					file = gzip.GzipFile (fileobj = data)
-					file.read (1)
+					data = StringIO.StringIO (file.read ())
 				except:
-					return "File is not compressed with GZIP"
+					pass
+
+				file.close ()
+
+				if data:
+					try:
+						file = gzip.GzipFile (fileobj = data)
+						file.read (1)
+					except:
+						return "File is not compressed with GZIP"
+				else:
+					return "Failed to read data"
 
 			mylist = []
 
