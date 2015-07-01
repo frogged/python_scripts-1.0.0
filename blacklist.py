@@ -1,5 +1,5 @@
 # Verlihub Blacklist 1.1.2
-# Written by RoLex, 2010-2014
+# Written by RoLex, 2010-2015
 # Special thanks to Frog
 # Changelog:
 # 0.0.0 - Not available
