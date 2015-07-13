@@ -1,7 +1,9 @@
 # Verlihub Blacklist 1.1.2
 # Written by RoLex, 2010-2015
 # Special thanks to Frog
+
 # Changelog:
+
 # 0.0.0 - Not available
 # 1.0.0 - Added configuration find_maxres to limit number of results on find action
 # 1.0.0 - Added country codes of addresses in waiting feed list
@@ -32,9 +34,9 @@ bl_stats = {
 
 bl_update = [
 	# ["http://list.iblocklist.com/?list=ijfqtofzixtwayqovmxn&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Primary threat", 0, 0, 0],
-	# ["http://list.iblocklist.com/?list=bt_proxy&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Proxy", 0, 0, 0],
-	# ["http://torstatus.blutmagie.de/ip_list_exit.php/tor_ip_list_exit.csv", "single", "Tor exit", 60, 0, 0],
-	# ["http://torstatus.blutmagie.de/ip_list_all.php/tor_ip_list_all.csv", "single", "Tor server", 60, 0, 0]
+	# ["http://list.iblocklist.com/?list=xoebmbyexwuiogmbyprb&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Proxy", 0, 0, 0],
+	# ["http://ledo.feardc.net/mirror/torexit.list", "single", "Tor exit", 60, 0, 0],
+	# ["http://ledo.feardc.net/mirror/torserver.list", "single", "Tor server", 60, 0, 0]
 ]
 
 bl_list = [[] for i in xrange (256)]
@@ -258,7 +260,7 @@ def bl_addrtoint (addr):
 	return struct.unpack ("!L", socket.inet_aton (addr)) [0]
 
 def bl_addrtostr (addr):
-	return socket.inet_ntoa (struct.pack ('!L', addr))
+	return socket.inet_ntoa (struct.pack ("!L", addr))
 
 def bl_validaddr (addr):
 	for part in addr.split ("."):
