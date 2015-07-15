@@ -116,7 +116,7 @@ bl_lang = {
 	97: "Show current translation",
 	98: "Translation list",
 	99: "Updated translation with ID: %s",
-	100: "Parameter count mismatch in translation witd ID: %s"
+	100: "Parameter count mismatch in translation with ID: %s"
 }
 
 bl_conf = {
@@ -185,7 +185,7 @@ def bl_startup ():
 
 	if sql and rows:
 		for lang in rows:
-			if int (lang [0]) >= 0 and len (bl_lang) - 1 >= int (lang [0]):
+			if int (lang [0]) >= 0 and len (bl_lang) - 1 >= int (lang [0]) and lang [1].count ("%s") == bl_lang [int (lang [0])].count ("%s"):
 				bl_lang [int (lang [0])] = lang [1]
 
 	for name, value in bl_conf.iteritems ():
