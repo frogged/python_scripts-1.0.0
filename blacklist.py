@@ -11,6 +11,7 @@
 # 1.1.1 - Added listoff command to disable or enable lists
 # 1.1.2 - Added another read failure check
 # 1.1.3 - Fixed display of item configuration old value when changing from zero
+# 1.1.3 - Fixed default exception file creation in wrong directory
 # 1.1.3 - Added translation ability with list command lang and update command trans
 
 import vh, re, urllib2, gzip, StringIO, time, os, socket, struct
@@ -120,7 +121,7 @@ bl_lang = {
 }
 
 bl_conf = {
-	"file_except": ["blacklist_except.txt", "str", 1, 255],
+	"file_except": [vh.basedir + "/blacklist_except.txt", "str", 1, 255],
 	"nick_feed": ["", "str", 0, 255],
 	"class_feed": [5, "int", 0, 11],
 	"class_conf": [10, "int", 3, 11],
