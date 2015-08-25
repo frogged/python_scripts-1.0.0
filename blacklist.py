@@ -144,7 +144,6 @@ bl_stats = {
 
 bl_update = [
 	# ["http://list.iblocklist.com/?list=ijfqtofzixtwayqovmxn&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Primary threat", 0, 0, 0],
-	# ["http://list.iblocklist.com/?list=dufcxgnbjsdwmwctgfuj&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Pedophile", 0, 0, 0],
 	# ["http://list.iblocklist.com/?list=xoebmbyexwuiogmbyprb&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Proxy", 0, 0, 0],
 	# ["http://ledo.feardc.net/mirror/torexit.list", "single", "Tor exit", 60, 0, 0],
 	# ["http://ledo.feardc.net/mirror/torserver.list", "single", "Tor server", 60, 0, 0]
