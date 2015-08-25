@@ -1,4 +1,4 @@
-# Verlihub Blacklist 1.1.3
+# Verlihub Blacklist 1.1.4
 # Written by RoLex, 2010-2015
 # Special thanks to Frog
 
@@ -13,8 +13,10 @@
 # 1.1.3 - Fixed display of item configuration old value when changing from zero
 # 1.1.3 - Fixed default exception file creation in wrong directory
 # 1.1.3 - Added translation ability with list command lang and update command trans
+# 1.1.4 - Added compression file format "zip"
+# 1.1.4 - Added data file format "emule"
 
-import vh, re, urllib2, gzip, StringIO, time, os, socket, struct
+import vh, re, urllib2, gzip, zipfile, StringIO, time, os, socket, struct
 
 bl_lang = {
 	0: "Blacklist %s startup",
@@ -117,7 +119,8 @@ bl_lang = {
 	97: "Show current translation",
 	98: "Translation list",
 	99: "Updated translation with ID: %s",
-	100: "Parameter count mismatch in translation with ID: %s"
+	100: "Parameter count mismatch in translation with ID: %s",
+	101: "File is not compressed with ZIP"
 }
 
 bl_conf = {
@@ -136,11 +139,12 @@ bl_stats = {
 	"block": 0l,
 	"except": 0l,
 	"tick": time.time (),
-	"version": "1.1.3" # update on release
+	"version": "1.1.4" # update on release
 }
 
 bl_update = [
 	# ["http://list.iblocklist.com/?list=ijfqtofzixtwayqovmxn&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Primary threat", 0, 0, 0],
+	# ["http://list.iblocklist.com/?list=dufcxgnbjsdwmwctgfuj&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Pedophile", 0, 0, 0],
 	# ["http://list.iblocklist.com/?list=xoebmbyexwuiogmbyprb&fileformat=p2p&archiveformat=gz", "gzip-p2p", "Proxy", 0, 0, 0],
 	# ["http://ledo.feardc.net/mirror/torexit.list", "single", "Tor exit", 60, 0, 0],
 	# ["http://ledo.feardc.net/mirror/torserver.list", "single", "Tor server", 60, 0, 0]
@@ -216,7 +220,7 @@ def bl_startup ():
 	out += " [*] %s: %s\r\n" % (bl_lang [1], bl_import (bl_conf ["file_except"][0], "p2p", bl_lang [1], 0, True))
 	bl_notify (out)
 
-def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-range, gzip-single, p2p, range, single
+def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-emule, gzip-range, gzip-single, zip-p2p, zip-emule, zip-range, zip-single, p2p, emule, range, single
 	global bl_list, bl_except
 	file = None
 
@@ -239,11 +243,13 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 		find = None
 
 		if "p2p" in type:
-			find = "(.*)\:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\-(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+			find = "(.*)\:(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\-(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})"
+		elif "emule" in type:
+			find = "(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}) \- (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}) \, \d{1,3} \, (.*)"
 		elif "range" in type:
-			find = "(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\-(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+			find = "(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\-(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})"
 		elif "single" in type:
-			find = "(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+			find = "(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})"
 
 		if find:
 			try:
@@ -252,7 +258,7 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 				file.close ()
 				return bl_lang [5]
 
-			if "gzip" in type:
+			if "gzip" in type or "zip" in type:
 				data = None
 
 				try:
@@ -263,18 +269,27 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 				file.close ()
 
 				if data:
-					try:
-						file = gzip.GzipFile (fileobj = data)
-						file.read (1)
-					except:
-						return bl_lang [6]
+					if "gzip" in type: # gzip
+						try:
+							file = gzip.GzipFile (fileobj = data)
+							file.read (1)
+						except:
+							return bl_lang [6]
+					elif "zip" in type: # zip
+						try:
+							arch = zipfile.ZipFile (file = data)
+							file = arch.open (arch.namelist () [0])
+							arch.close ()
+							file.read (1)
+						except:
+							return bl_lang [101]
 				else:
 					return bl_lang [7]
 
 			mylist = []
 
 			for line in file:
-				part = find.findall (line)
+				part = find.findall (line.replace ("\r", "").replace ("\n", ""))
 
 				if part:
 					mytitle = None
@@ -283,19 +298,23 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 
 					if "p2p" in type:
 						mytitle = part [0][0] or title
-						myloaddr = part [0][1]
-						myhiaddr = part [0][2]
+						myloaddr = str (int (part [0][1])) + "." + str (int (part [0][2])) + "." + str (int (part [0][3])) + "." + str (int (part [0][4]))
+						myhiaddr = str (int (part [0][5])) + "." + str (int (part [0][6])) + "." + str (int (part [0][7])) + "." + str (int (part [0][8]))
+					elif "emule" in type:
+						mytitle = part [0][8] or title
+						myloaddr = str (int (part [0][0])) + "." + str (int (part [0][1])) + "." + str (int (part [0][2])) + "." + str (int (part [0][3]))
+						myhiaddr = str (int (part [0][4])) + "." + str (int (part [0][5])) + "." + str (int (part [0][6])) + "." + str (int (part [0][7]))
 					elif "range" in type:
 						mytitle = title
-						myloaddr = part [0][0]
-						myhiaddr = part [0][1]
+						myloaddr = str (int (part [0][0])) + "." + str (int (part [0][1])) + "." + str (int (part [0][2])) + "." + str (int (part [0][3]))
+						myhiaddr = str (int (part [0][4])) + "." + str (int (part [0][5])) + "." + str (int (part [0][6])) + "." + str (int (part [0][7]))
 					elif "single" in type:
 						mytitle = title
-						myloaddr = part [0]
-						myhiaddr = part [0]
+						myloaddr = str (int (part [0][0])) + "." + str (int (part [0][1])) + "." + str (int (part [0][2])) + "." + str (int (part [0][3]))
+						myhiaddr = myloaddr
 
 					if mytitle and myloaddr and myhiaddr and bl_validaddr (myloaddr) and bl_validaddr (myhiaddr):
-						mylist.append ([bl_addrtoint (myloaddr), bl_addrtoint (myhiaddr), mytitle])
+						mylist.append ([bl_addrtoint (myloaddr), bl_addrtoint (myhiaddr), mytitle.replace ("\\'", "'").replace ("\\\"", "\"").replace ("\\&", "&").replace ("\\\\", "\\")])
 
 			file.close ()
 
@@ -305,7 +324,7 @@ def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-rang
 			else:
 				for item in mylist:
 					for i in xrange (item [0] >> 24, (item [1] >> 24) + 1):
-						if not update or (update and not item in bl_list [i]):
+						if not update or not item in bl_list [i]:
 							bl_list [i].append (item)
 
 			return bl_lang [8] % len (mylist)
@@ -381,10 +400,24 @@ def bl_setconf (name, value, update = True):
 		return bl_lang [17]
 
 def bl_addrtoint (addr):
-	return struct.unpack ("!L", socket.inet_aton (addr)) [0]
+	res = 0
+
+	try:
+		res = struct.unpack ("!L", socket.inet_aton (addr)) [0]
+	except:
+		pass
+
+	return res
 
 def bl_addrtostr (addr):
-	return socket.inet_ntoa (struct.pack ("!L", addr))
+	res = "0.0.0.0"
+
+	try:
+		res = socket.inet_ntoa (struct.pack ("!L", addr))
+	except:
+		pass
+
+	return res
 
 def bl_validaddr (addr):
 	for part in addr.split ("."):
@@ -554,9 +587,15 @@ def OnOperatorCommand (user, data):
 
 			types = [
 				"gzip-p2p",
+				"gzip-emule",
 				"gzip-range",
 				"gzip-single",
+				"zip-p2p",
+				"zip-emule",
+				"zip-range",
+				"zip-single",
 				"p2p",
+				"emule",
 				"range",
 				"single"
 			]
