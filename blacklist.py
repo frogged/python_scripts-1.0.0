@@ -1,20 +1,21 @@
-# Verlihub Blacklist 1.1.4
+# Verlihub Blacklist 1.1.5
 # Written by RoLex, 2010-2015
 # Special thanks to Frog
 
 # Changelog:
 
 # 0.0.1 - Initial release
-# 1.0.0 - Added configuration find_maxres to limit number of results on find action
+# 1.0.0 - Added "find_maxres" configuration to limit number of results on find action
 # 1.0.0 - Added country codes of addresses in waiting feed list
-# 1.1.0 - Added configuration time_down to specify timeout of download progress in seconds
-# 1.1.1 - Added listoff command to disable or enable lists
+# 1.1.0 - Added "time_down" configuration to specify timeout of download progress in seconds
+# 1.1.1 - Added "listoff" command to disable or enable lists
 # 1.1.2 - Added another read failure check
 # 1.1.3 - Fixed display of item configuration old value when changing from zero
 # 1.1.3 - Fixed default exception file creation in wrong directory
-# 1.1.3 - Added translation ability with list command lang and update command trans
+# 1.1.3 - Added translation ability with list command "lang" and update command "trans"
 # 1.1.4 - Added compression file format "zip"
 # 1.1.4 - Added data file format "emule"
+# 1.1.5 - Added "listget" command to force list load
 
 import vh, re, urllib2, gzip, zipfile, StringIO, time, os, socket, struct
 
@@ -120,7 +121,10 @@ bl_lang = {
 	98: "Translation list",
 	99: "Updated translation with ID: %s",
 	100: "Parameter count mismatch in translation with ID: %s",
-	101: "File is not compressed with ZIP"
+	101: "File is not compressed with ZIP",
+	102: "Force load of existing list",
+	103: "Item is disabled",
+	104: "Item load result"
 }
 
 bl_conf = {
@@ -139,7 +143,7 @@ bl_stats = {
 	"block": 0l,
 	"except": 0l,
 	"tick": time.time (),
-	"version": "1.1.4" # update on release
+	"version": "1.1.5" # todo: update on release
 }
 
 bl_update = [
@@ -211,15 +215,15 @@ def bl_startup ():
 
 	for id, item in enumerate (bl_update):
 		if not item [4]:
-			out += " [*] %s: %s\r\n" % (item [2], bl_import (item [0], item [1], item [2], 0))
+			out += " [*] %s: %s\r\n" % (item [2], bl_import (item [0], item [1], item [2]))
 
 			if item [3]:
 				bl_update [id][5] = time.time ()
 
-	out += " [*] %s: %s\r\n" % (bl_lang [1], bl_import (bl_conf ["file_except"][0], "p2p", bl_lang [1], 0, True))
+	out += " [*] %s: %s\r\n" % (bl_lang [1], bl_import (bl_conf ["file_except"][0], "p2p", bl_lang [1], False, True))
 	bl_notify (out)
 
-def bl_import (list, type, title, update, exlist = False): # gzip-p2p, gzip-emule, gzip-range, gzip-single, zip-p2p, zip-emule, zip-range, zip-single, p2p, emule, range, single
+def bl_import (list, type, title, update = False, exlist = False): # gzip-p2p, gzip-emule, gzip-range, gzip-single, zip-p2p, zip-emule, zip-range, zip-single, p2p, emule, range, single
 	global bl_list, bl_except
 	file = None
 
@@ -638,7 +642,7 @@ def OnOperatorCommand (user, data):
 			out += ("\r\n [*] " + bl_lang [39]) % pars [0][2]
 			out += ("\r\n [*] " + bl_lang [40]) % (bl_lang [41] if not update else (bl_lang [42] + " | %s") % (update, time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (update * 60)))) if update == 1 else (bl_lang [43] + " | %s") % (update, time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (update * 60)))))
 			out += ("\r\n [*] " + bl_lang [44]) % bl_lang [45]
-			out += ("\r\n [*] " + bl_lang [51] + "\r\n") % bl_import (pars [0][0], pars [0][1], pars [0][2], 0)
+			out += ("\r\n [*] " + bl_lang [51] + "\r\n") % bl_import (pars [0][0], pars [0][1], pars [0][2])
 			bl_reply (user, out)
 			return 0
 
@@ -659,7 +663,7 @@ def OnOperatorCommand (user, data):
 
 					for newid, newitem in enumerate (bl_update):
 						if not newitem [4]:
-							bl_import (newitem [0], newitem [1], newitem [2], 0)
+							bl_import (newitem [0], newitem [1], newitem [2])
 
 							if newitem [3]:
 								bl_update [newid][5] = time.time ()
@@ -696,7 +700,7 @@ def OnOperatorCommand (user, data):
 
 					for newid, newitem in enumerate (bl_update):
 						if not newitem [4]:
-							bl_import (newitem [0], newitem [1], newitem [2], 0)
+							bl_import (newitem [0], newitem [1], newitem [2])
 
 							if newitem [3]:
 								bl_update [newid][5] = time.time ()
@@ -723,8 +727,38 @@ def OnOperatorCommand (user, data):
 					out += ("\r\n [*] " + bl_lang [39]) % item [2]
 					out += ("\r\n [*] " + bl_lang [40]) % (bl_lang [41] if not item [3] else (bl_lang [42] + " | %s") % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (item [3] * 60)))) if item [3] == 1 else (bl_lang [43] + " | %s") % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (item [3] * 60)))))
 					out += ("\r\n [*] " + bl_lang [44]) % bl_lang [45]
-					out += ("\r\n [*] " + bl_lang [51] + "\r\n") % bl_import (item [0], item [1], item [2], 0)
+					out += ("\r\n [*] " + bl_lang [51] + "\r\n") % bl_import (item [0], item [1], item [2])
 					bl_reply (user, out)
+			else:
+				bl_reply (user, bl_lang [53] % id)
+
+			return 0
+
+		if data [4:11] == "listget":
+			try:
+				id = int (data [12:])
+			except:
+				bl_reply (user, bl_lang [29] % ("listget <" + bl_lang [88] + ">"))
+				return 0
+
+			if id >= 0 and bl_update and len (bl_update) - 1 >= id:
+				item = bl_update [id]
+
+				if not item [4]:
+					if item [3]:
+						bl_update [id][5] = time.time ()
+
+					out = bl_lang [104] + ":\r\n"
+					out += ("\r\n [*] " + bl_lang [36]) % id
+					out += ("\r\n [*] " + bl_lang [37]) % item [0]
+					out += ("\r\n [*] " + bl_lang [38]) % item [1]
+					out += ("\r\n [*] " + bl_lang [39]) % item [2]
+					out += ("\r\n [*] " + bl_lang [40]) % (bl_lang [41] if not item [3] else (bl_lang [42] + " | %s") % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (item [3] * 60)))) if item [3] == 1 else (bl_lang [43] + " | %s") % (item [3], time.strftime ("%d/%m %H:%M", time.gmtime (time.time () + (item [3] * 60)))))
+					out += ("\r\n [*] " + bl_lang [44]) % bl_lang [45]
+					out += ("\r\n [*] " + bl_lang [51] + "\r\n") % bl_import (item [0], item [1], item [2])
+					bl_reply (user, out)
+				else:
+					bl_reply (user, bl_lang [103] % id)
 			else:
 				bl_reply (user, bl_lang [53] % id)
 
@@ -891,6 +925,7 @@ def OnOperatorCommand (user, data):
 		out += " !bl listall\t\t\t\t\t- " + bl_lang [76] + "\r\n"
 		out += " !bl listadd <" + bl_lang [92] + "> <" + bl_lang [93] + "> <\"" + bl_lang [91] + "\"> [" + bl_lang [94] + "]\t- " + bl_lang [77] + "\r\n"
 		out += " !bl listoff <" + bl_lang [88] + ">\t\t\t\t- " + bl_lang [78] + "\r\n"
+		out += " !bl listget <" + bl_lang [88] + ">\t\t\t\t- " + bl_lang [102] + "\r\n"
 		out += " !bl listdel <" + bl_lang [88] + ">\t\t\t\t- " + bl_lang [79] + "\r\n\r\n"
 		out += " !bl exall\t\t\t\t\t- " + bl_lang [80] + "\r\n"
 		out += " !bl exadd <" + bl_lang [89] + ">-[" + bl_lang [90] + "] [" + bl_lang [91] + "]\t\t- " + bl_lang [81] + "\r\n"
@@ -918,7 +953,7 @@ def OnTimer ():
 		for id, item in enumerate (bl_update):
 			if not item [4] and item [3] and time.time () - item [5] >= item [3] * 60:
 				bl_update [id][5] = time.time ()
-				out = bl_import (item [0], item [1], item [2], 1)
+				out = bl_import (item [0], item [1], item [2], True)
 
 				if bl_conf ["notify_update"][0]:
 					bl_notify ("%s: %s" % (item [2], out))
