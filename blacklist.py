@@ -1,4 +1,4 @@
-# Verlihub Blacklist 1.1.5
+# Verlihub Blacklist 1.1.6
 # Written by RoLex, 2010-2015
 # Special thanks to Frog
 
@@ -16,6 +16,7 @@
 # 1.1.4 - Added compression file format "zip"
 # 1.1.4 - Added data file format "emule"
 # 1.1.5 - Added "listget" command to force list load
+# 1.1.6 - Added exception notifications to waiting feed list aswell
 
 import vh, re, urllib2, gzip, zipfile, StringIO, time, os, socket, struct
 
@@ -143,7 +144,7 @@ bl_stats = {
 	"block": 0l,
 	"except": 0l,
 	"tick": time.time (),
-	"version": "1.1.5" # todo: update on release
+	"version": "1.1.6" # todo: update on release
 }
 
 bl_update = [
@@ -461,7 +462,17 @@ def OnNewConn (addr):
 
 			for eitem in bl_except:
 				if intaddr >= eitem [0] and intaddr <= eitem [1]:
+					for id, feed in enumerate (bl_feed):
+						if feed [0] == addr:
+							if time.time () - feed [1] >= bl_conf ["time_feed"][0] * 60:
+								bl_notify ((bl_lang [18] + " | %s") % (addr, code, item [2], eitem [2]))
+								bl_feed [id][1] = time.time ()
+
+							bl_stats ["except"] += 1
+							return 1
+
 					bl_notify ((bl_lang [18] + " | %s") % (addr, code, item [2], eitem [2]))
+					bl_feed.append ([addr, time.time ()])
 					bl_stats ["except"] += 1
 					return 1
 
