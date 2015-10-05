@@ -1,4 +1,4 @@
-# Verlihub Blacklist 1.1.6
+# Verlihub Blacklist 1.1.7
 # Written by RoLex, 2010-2015
 # Special thanks to Frog
 
@@ -17,6 +17,7 @@
 # 1.1.4 - Added data file format "emule"
 # 1.1.5 - Added "listget" command to force list load
 # 1.1.6 - Added exception notifications to waiting feed list aswell
+# 1.1.7 - Fixed OnTimer callback
 
 import vh, re, urllib2, gzip, zipfile, StringIO, time, os, socket, struct
 
@@ -144,7 +145,7 @@ bl_stats = {
 	"block": 0l,
 	"except": 0l,
 	"tick": time.time (),
-	"version": "1.1.6" # todo: update on release
+	"version": "1.1.7" # todo: update on release
 }
 
 bl_update = [
@@ -951,7 +952,7 @@ def OnOperatorCommand (user, data):
 
 	return 1
 
-def OnTimer ():
+def OnTimer (msec):
 	global bl_stats, bl_update, bl_feed, bl_conf
 
 	if time.time () - bl_stats ["tick"] >= 60:
